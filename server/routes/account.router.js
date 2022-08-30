@@ -41,12 +41,41 @@ router.post('/transfer', async (req, res) => {
   }
   catch (error) {
     await connection.query('ROLLBACK');
-    console.log('Error:', error);
+    console.log('Error transferring:', error);
     res.sendStatus(500);
   }
   finally {
     connection.release();
   };
 });
+
+router.post('/new', async (req, res) => {
+  const name = req.body.name;
+  const amount = req.body.amount;
+  console.log(`Creating new acount ${name} will balance of ${amount}`);
+
+  const connection = await pool.connect();
+
+  try {
+    await connection.query('BEGIN');
+    const sqlAddAccount = 'INSERT INTO "account" ("name") VALUES ($1) RETURNING "id";';
+    const result = await connection.query(sqlAddAccount, [name]); // gets id from result
+    const accountId = result.rows[0].id;
+
+    const sqlInitialDeposit = 'INSERT INTO "register" ("acct_id", "amount") VALUES ($1, $2);';
+    await connection.query(sqlInitialDeposit, [accountId, amount]);
+    await connection.query('COMMIT');
+    res.sendStatus(200);
+  }
+  catch (error) {
+    await connection.query('ROLLBACK');
+    console.log('Error adding new:', error);
+    res.sendStatus(500);
+  }
+  finally {
+    connection.release();
+  };
+});
+
 
 module.exports = router;
